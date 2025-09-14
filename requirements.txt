@@ -1,0 +1,11 @@
+agency-swarm
+python-dotenv~=1.1.1
+aiogram~=3.22.0
+psycopg2-binary~=2.9.10
+sentence-transformers~=5.1.0
+chromadb~=1.0.20
+litellm
+uvicorn
+pydantic~=2.11.7
+openai~=1.107.1
+openai-agents

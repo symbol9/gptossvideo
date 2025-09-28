@@ -57,13 +57,21 @@ async def local_transfer_to_manager(bot, manager_id, user_info, history, user_qu
     if user_info.get('username'):
         user_info_str += f"\n<b>Username:</b> @{user_info.get('username')}"
     history_str = "\n".join([f"<b>{msg['role'].upper()}:</b>\n<pre>{msg['content']}</pre>" for msg in history])
-    final_message = (
+    final_message_html = (
         f"⚠️ <b>[ЛОКАЛЬНЫЙ АГЕНТ] Новое обращение!</b> ⚠️\n\n"
         f"<b>Контакт клиента:</b>\n{user_info_str}\n\n"
         f"<b>История диалога:</b>\n--------------------\n{history_str}"
     )
+    if not bot or not manager_id:
+        console_message = final_message_html.replace('<pre>', '').replace('</pre>', '').replace('<b>', '').replace('</b>', '').replace('⚠️', '')
+        print("\n" + "="*60)
+        print("!!! ЗАПРОС ПЕРЕВОДА НА МЕНЕДЖЕРА (РЕЖИМ WEB-ЧАТА) !!!")
+        print(console_message)
+        print("="*60 + "\n")
+        return "Уведомление менеджеру было бы отправлено, но мы работаем в локальном режиме. Запрос выведен в консоль. Сообщите пользователю, что его запрос зафиксирован и с ним скоро свяжутся."
+
     try:
-        await bot.send_message(chat_id=manager_id, text=final_message, parse_mode='HTML')
+        await bot.send_message(chat_id=manager_id, text=final_message_html, parse_mode='HTML')
         return "Уведомление менеджеру успешно отправлено. Сообщи пользователю, что менеджер скоро свяжется с ним."
     except Exception as e:
         return f"Ошибка при отправке уведомления менеджеру: {e}"

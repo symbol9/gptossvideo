@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Локальный Чат-Агент</title>
+  <style>
+    :root{
+      /* Чуть светлее, близко к ChatGPT (тёмная тема) */
+      --bg:#161718;
+      --surface:#262729;      /* фон сообщений ассистента */
+      --surface-2:#212224;    /* фон инпута */
+      --user-surface:#2b2c2e; /* фон сообщений пользователя (чуть светлее ассистента) */
+      --border:#3b3d40;
+      --ring:#5d6066;
+      --text:#f4f4f5;
+      --muted:#c4c6ca;
+      --code-bg:#1f2022;
+
+      --avatar-ai-1:#19C37D;
+      --avatar-ai-2:#10A37F;
+      --avatar-user-1:#a6a6af;
+      --avatar-user-2:#7a7a83;
+
+      --send-1:#ab68ff;
+      --send-2:#7b91ff;
+
+      --shadow:0 8px 24px rgba(0,0,0,.35);
+    }
+
+    *{margin:0;padding:0;box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      font-family:"Söhne",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Oxygen,Ubuntu,Cantarell,"Fira Sans","Droid Sans","Helvetica Neue",sans-serif;
+      background:var(--bg);
+      color:var(--text);
+      display:flex;flex-direction:column;overflow:hidden;
+      -webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;
+    }
+
+    /* Верхняя панель */
+    .chat-header{
+      position:sticky;top:0;z-index:20;height:56px;
+      display:flex;align-items:center;padding:0 16px;
+      background:var(--bg);border-bottom:1px solid var(--border);
+      color:var(--text);font-weight:600;letter-spacing:.2px;
+    }
+
+    .chat-container{display:flex;flex-direction:column;flex:1;overflow:hidden}
+
+    /* Область диалога */
+    .chat-box{
+      flex:1;overflow-y:auto;
+      padding:24px 0 120px;
+      scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.22) transparent;
+      background:radial-gradient(1200px 600px at 50% -400px, rgba(255,255,255,.05), transparent 65%) var(--bg);
+    }
+    .chat-box::-webkit-scrollbar{width:10px}
+    .chat-box::-webkit-scrollbar-thumb{background:rgba(255,255,255,.22);border-radius:8px}
+    .chat-box::-webkit-scrollbar-track{background:transparent}
+
+    /* Центральная колонка — все сообщения в одну колонку слева, как в ChatGPT */
+    .message{
+      max-width:880px;margin:0 auto 18px auto;padding:0 22px;
+      display:flex;gap:16px;align-items:flex-start;justify-content:flex-start;
+      animation:slideIn .22s ease-out;
+    }
+    .bot-message{flex-direction:row}
+    .user-message{flex-direction:row} /* убираем «змейку»: пользователь тоже слева */
+
+    .avatar{
+      width:32px;height:32px;border-radius:50%;
+      display:flex;align-items:center;justify-content:center;
+      font-weight:700;font-size:13px;color:#fff;flex-shrink:0;user-select:none;
+      box-shadow:0 2px 6px rgba(0,0,0,.25);
+    }
+    .bot-avatar{background:linear-gradient(180deg,var(--avatar-ai-1),var(--avatar-ai-2))}
+    .user-avatar{background:linear-gradient(180deg,var(--avatar-user-1),var(--avatar-user-2))}
+
+    .message-content{
+      flex:1;max-width:100%;
+      border:1px solid var(--border);
+      color:var(--text);
+      line-height:1.7;font-size:18px; /* Увеличен размер шрифта */
+      padding:16px 20px;border-radius:20px; /* Увеличены отступы и скругление */
+      background:var(--surface);
+    }
+    .user-message .message-content{
+      background:var(--user-surface); /* немного светлее — удобнее для чтения */
+      border-color:#474a4f;
+    }
+
+    /* Ритм текста и код */
+    .message-content p + p{margin-top:10px}
+    .message-content ul,.message-content ol{margin:8px 0 8px 20px}
+    .message-content code{
+      background:var(--code-bg);border:1px solid var(--border);
+      padding:.15em .4em;border-radius:6px;
+      font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace;
+      font-size:.95em;
+    }
+    .message-content strong { color: var(--text); }
+    .message-content em { font-style: italic; }
+    .message-content pre{
+      background:var(--code-bg);color:var(--text);
+      border:1px solid var(--border);border-radius:12px;
+      padding:12px;overflow:auto;
+      font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace;
+    }
+    .typing-indicator{color:var(--muted);font-style:italic}
+
+    /* Инпут */
+    .input-section{
+      position:sticky;bottom:0;z-index:30;
+      background:linear-gradient(to top, rgba(0,0,0,.55) 0%, rgba(0,0,0,0) 100%);
+      padding:18px 16px 22px;border-top:1px solid rgba(0,0,0,0);
+    }
+    .input-container{max-width:880px;margin:0 auto;position:relative}
+
+    .input-wrapper{
+      background:var(--surface-2);
+      border:1px solid var(--border);
+      border-radius:24px; /* Увеличено */
+      display:flex;align-items:flex-end;position:relative;
+      box-shadow:var(--shadow);
+      transition:border-color .2s ease, box-shadow .2s ease, background .2s ease;
+    }
+    .input-wrapper:focus-within{
+      border-color:var(--ring);
+      box-shadow:0 0 0 1px var(--ring), var(--shadow);
+      background:var(--surface);
+    }
+    #message-input{
+      flex:1;background:transparent;border:none;outline:none;color:var(--text);
+      font-size:18px;line-height:26px;padding:16px 60px 16px 20px; /* Увеличено */
+      resize:none;max-height:200px;min-height:60px;font-family:inherit; /* Увеличено */
+    }
+    #message-input::placeholder{color:var(--muted)}
+
+    /* Кнопка отправки */
+    #send-button{
+      position:absolute;right:12px;bottom:12px; /* Скорректировано */
+      width:38px;height:38px;border:none;cursor:pointer;border-radius:999px; /* Увеличено */
+      background:linear-gradient(135deg,var(--send-1) 0%,var(--send-2) 100%);
+      color:#fff;display:flex;align-items:center;justify-content:center;
+      box-shadow:0 6px 18px rgba(171,104,255,.35);
+      transition:transform .12s ease, opacity .12s ease, box-shadow .2s ease;
+    }
+    #send-button:hover:not(:disabled){transform:translateY(-1px);box-shadow:0 10px 22px rgba(171,104,255,.45)}
+    #send-button:active:not(:disabled){transform:translateY(0)}
+    #send-button:disabled{opacity:.45;cursor:not-allowed;background:linear-gradient(135deg,#787878,#555);box-shadow:none}
+
+    @keyframes slideIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+
+    @media (max-width:768px){
+      .chat-box{padding:16px 0 104px}
+      .message{padding:0 14px;gap:10px}
+      .message-content{font-size:17px;padding:14px 16px;border-radius:18px}
+      #message-input{min-height:56px;padding:14px 56px 14px 16px}
+      #send-button{right:10px;bottom:10px;width:36px;height:36px}
+    }
+  </style>
+</head>
+<body>
+
+  <div class="chat-header">Локальный Агент ‘ТехноМир’</div>
+
+  <div class="chat-container">
+    <div class="chat-box" id="chat-box">
+      <div class="message bot-message">
+        <div class="avatar bot-avatar">AI</div>
+        <div class="message-content"><strong>Здравствуйте!</strong> Я ваш персональный ассистент. Чем могу помочь?</div>
+      </div>
+    </div>
+
+    <div class="input-section">
+      <div class="input-container">
+        <form class="input-wrapper" id="message-form">
+          <textarea id="message-input" placeholder="Спросите что-нибудь…" rows="1"></textarea>
+          <button type="submit" id="send-button" aria-label="Отправить">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+              <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
+            </svg>
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const chatBox = document.getElementById('chat-box');
+    const messageForm = document.getElementById('message-form');
+    const messageInput = document.getElementById('message-input');
+    const sendButton = document.getElementById('send-button');
+
+    // Простая функция для конвертации Markdown в HTML
+    function simpleMarkdownToHtml(text) {
+        let html = text
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
+        html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+        html = html.replace(/\*(.*?)\*/g, '<em>$1</em>');
+        html = html.replace(/`(.*?)`/g, '<code>$1</code>');
+        html = html.replace(/\n/g, '<br>');
+        return html;
+    }
+
+    // Автоподгон высоты
+    messageInput.addEventListener('input', function () {
+      this.style.height = 'auto';
+      this.style.height = Math.min(this.scrollHeight, 200) + 'px';
+    });
+
+    // --- НОВАЯ, ИСПРАВЛЕННАЯ ЛОГИКА ОТПРАВКИ ---
+
+    // Создаем отдельную функцию для всей логики отправки
+    const handleFormSubmit = async () => {
+      const userMessage = messageInput.value.trim();
+      if (!userMessage) return;
+
+      addMessage('user', userMessage);
+      messageInput.value = '';
+      messageInput.style.height = 'auto';
+      sendButton.disabled = true;
+
+      const botMessageContent = addMessage('bot', 'Печатает…', false);
+
+      try {
+        const response = await fetch('/chat/stream', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message: userMessage }),
+        });
+
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let fullResponse = '';
+
+        while (true) {
+          const { value, done } = await reader.read();
+          if (done) break;
+          const chunk = decoder.decode(value, { stream: true });
+          fullResponse += chunk;
+          botMessageContent.innerHTML = simpleMarkdownToHtml(fullResponse) + ' ▌';
+          chatBox.scrollTop = chatBox.scrollHeight;
+        }
+        botMessageContent.innerHTML = simpleMarkdownToHtml(fullResponse) || '...';
+
+      } catch (err) {
+        botMessageContent.innerText = `Ошибка: Не удалось получить ответ от сервера. ${err.message || err}`;
+        console.error(err);
+      } finally {
+        sendButton.disabled = false;
+        messageInput.focus();
+      }
+    };
+    messageForm.addEventListener('submit', (e) => {
+      e.preventDefault(); // Всегда предотвращаем стандартную отправку
+      handleFormSubmit(); // Вызываем нашу асинхронную функцию
+    });
+
+    function addMessage(role, text, isMarkdown = true) {
+      const messageDiv = document.createElement('div');
+      messageDiv.classList.add('message', role === 'user' ? 'user-message' : 'bot-message');
+      const avatarDiv = document.createElement('div');
+      avatarDiv.classList.add('avatar', role === 'user' ? 'user-avatar' : 'bot-avatar');
+      avatarDiv.textContent = role === 'user' ? 'Вы' : 'AI';
+      const contentDiv = document.createElement('div');
+      contentDiv.classList.add('message-content');
+      if (isMarkdown) {
+        contentDiv.innerHTML = simpleMarkdownToHtml(text);
+      } else {
+        contentDiv.innerText = text;
+      }
+      messageDiv.appendChild(avatarDiv);
+      messageDiv.appendChild(contentDiv);
+      chatBox.appendChild(messageDiv);
+      chatBox.scrollTop = chatBox.scrollHeight;
+      return contentDiv;
+    }
+
+    // Фокус при загрузке
+    messageInput.focus();
+  </script>
+
+</body>
+</html>

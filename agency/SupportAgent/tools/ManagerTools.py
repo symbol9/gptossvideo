@@ -20,8 +20,6 @@ async def TransferToManager(
     """
     print("Executing new function-based TransferToManager tool...")
 
-    # --- НОВЫЙ, ПРАВИЛЬНЫЙ СПОСОБ ПОЛУЧЕНИЯ КОНТЕКСТА ---
-    # Контекст передается через первый аргумент `ctx`
     bot = ctx.context.user_context.get("bot_instance")
     user_info_dict = ctx.context.user_context.get("user_info")
     message_history = ctx.context.user_context.get("message_history")
@@ -65,3 +63,4 @@ async def TransferToManager(
         error_message = f"Ошибка при отправке уведомления менеджеру: {e}"
         print(f"ERROR in TransferToManager: {error_message}")
         return error_message
+

@@ -52,35 +52,31 @@ def local_faq_search(query: str) -> str:
 
 async def local_transfer_to_manager(bot, manager_id, user_info, history, user_question) -> str:
     print(f"Инструмент 'Перевод на менеджера': формирую и отправляю сообщение...")
-    user_info_str = f"<b>Имя:</b> {user_info.get('full_name')}\n<b>ID:</b> {user_info.get('id')}"
-    if user_info.get('username'):
-        user_info_str += f"\n<b>Username:</b> @{user_info.get('username')}"
 
-    # Собираем историю диалога в читаемый формат
-    history_str = []
+    dialog_id_str = user_info.get('dialog_id', 'Не определен')
+    user_info_str = f"<b>Номер диалога:</b> {dialog_id_str}"
+
+    history_str_list = []
     for msg in history:
-        # Экранируем HTML-теги внутри <pre> для безопасности
-        content = msg['content'].replace('<', '&lt;').replace('>', '&gt;')
-        history_str.append(f"<b>{msg['role'].upper()}:</b>\n<pre>{content}</pre>")
-    history_str = "\n".join(history_str)
+        content = msg.get('content', '').replace('<', '&lt;').replace('>', '&gt;')
+        role = msg.get('role', 'unknown').upper()
+        history_str_list.append(f"<b>{role}:</b>\n<pre>{content}</pre>")
+    history_str = "\n".join(history_str_list)
 
     final_message_html = (
         f"⚠️ <b>[ЛОКАЛЬНЫЙ АГЕНТ] Новое обращение!</b> ⚠️\n\n"
-        f"<b>Контакт клиента:</b>\n{user_info_str}\n\n"
+        f"<b>{user_info_str}</b>\n\n"
         f"<b>История диалога:</b>\n--------------------\n{history_str}"
     )
 
-    # Эта проверка теперь будет пройдена, так как мы передадим bot и manager_id
     if not bot or not manager_id:
-        # Этот блок больше не будет выполняться в нашем сценарии
-        print("!!! РАБОТА В РЕЖИМЕ WEB-ЧАТА (БЕЗ ОТПРАВКИ) !!!")
         return "Уведомление менеджеру было бы отправлено, но мы работаем в локальном режиме."
 
     try:
         await bot.send_message(chat_id=manager_id, text=final_message_html, parse_mode='HTML')
-        print(f"✅ Сообщение успешно отправлено менеджеру (ID: {manager_id})")
+        print(f"✅ Сообщение по диалогу {dialog_id_str} успешно отправлено менеджеру (ID: {manager_id})")
         return "Уведомление менеджеру успешно отправлено. Сообщи пользователю, что менеджер скоро свяжется с ним."
     except Exception as e:
-        print(f"🔴 ОШИБКА при отправке уведомления менеджеру: {e}")
+        print(f"🔴 ОШИБКА при отправке уведомления менеджеру по диалогу {dialog_id_str}: {e}")
         return f"Ошибка при отправке уведомления менеджеру: {e}"
 
